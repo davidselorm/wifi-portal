@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="pragma" content="no-cache">
+  <meta http-equiv="expires" content="-1">
+  <title>Redirecting to WaveNet WiFi Portal...</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #0f3d2e;
+      color: #ffffff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      text-align: center;
+      padding: 20px;
+    }
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 4px solid rgba(216, 246, 160, 0.2);
+      border-top: 4px solid #d8f6a0;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 24px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 600;
+      margin: 0 0 10px 0;
+    }
+    p {
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 14px;
+      margin: 0 0 20px 0;
+      max-width: 360px;
+    }
+    a {
+      color: #d8f6a0;
+      text-decoration: underline;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="spinner"></div>
+  <h1>Connecting to WaveNet WiFi</h1>
+  <p>Please wait while we redirect you to the portal to register and choose your plan...</p>
+  <noscript>
+    <p>JavaScript is disabled. Click the link below to continue:</p>
+    <a href="http://portal.wavenet.local/login?mac=$(mac)&ip=$(ip)&link-login=$(link-login)&link-orig=$(link-orig)">Go to WiFi Portal</a>
+  </noscript>
+
+  <script>
+    // EDIT THIS TO MATCH YOUR DEPLOYED PORTAL URL (e.g., http://192.168.88.2:5173 or https://wifi.yourdomain.com)
+    var PORTAL_BASE_URL = "http://192.168.88.2:5173/login";
+
+    var mac = encodeURIComponent("$(mac)");
+    var ip = encodeURIComponent("$(ip)");
+    var linkLogin = encodeURIComponent("$(link-login)");
+    var linkOrig = encodeURIComponent("$(link-orig)");
+    var error = encodeURIComponent("$(error)");
+
+    var target = PORTAL_BASE_URL + 
+      "?mac=" + mac + 
+      "&ip=" + ip + 
+      "&link-login=" + linkLogin + 
+      "&link-orig=" + linkOrig +
+      "&error=" + error;
+
+    window.location.replace(target);
+  </script>
+</body>
+</html>
