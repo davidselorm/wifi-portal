@@ -15,6 +15,7 @@ frontend/dist/
 *.sqlite-journal
 *.sqlite-shm
 *.sqlite-wal
+backups/
 
 # Logs
 *.log
