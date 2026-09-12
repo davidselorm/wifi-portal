@@ -4,10 +4,12 @@ const authMiddleware = require("../middleware/authMiddleware");
 
 const {
   getCustomerDashboard,
-  recordUsage
+  recordUsage,
+  extendTestTime
 } = require("../controllers/customerController");
 
 router.get("/dashboard", authMiddleware, getCustomerDashboard);
 router.post("/record-usage", authMiddleware, recordUsage);
+router.post("/extend-test-time", authMiddleware, extendTestTime);
 
 module.exports = router;

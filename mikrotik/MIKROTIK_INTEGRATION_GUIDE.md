@@ -19,9 +19,9 @@ Just follow this guide step-by-step. In about **10 minutes**, your WiFi network 
 
 1. A customer walks in and connects to your WiFi SSID.
 2. Their phone immediately opens your **WaveNet Portal** (Sign in / Register).
-3. The customer selects a **No-Expiry Data Bundle** (e.g. 1 GB for GH₵ 5 or 2.5 GB for GH₵ 12) and pays with **MTN MoMo** or **Telecel Cash**.
-4. Once paid, the portal automatically tells the MikroTik router: *"Grant internet access to this device!"*
-5. The customer browses the internet until their data quota finishes. Once finished, they top up again!
+3. The customer selects a **WiFi Time Pass** (e.g., 1 Hour for GH₵ 2.50, 24 Hours for GH₵ 18, or 7 Days for GH₵ 75) and pays with **MTN MoMo** or **Telecel Cash**.
+4. Once paid, the portal grants internet access immediately.
+5. The customer browses until their **purchased time is up**. Once time expires, internet access is automatically stopped, and the customer is prompted to purchase more time to reconnect!
 
 ---
 
@@ -121,9 +121,9 @@ add dst-host="*telecel.com.gh*" action=allow
 2. Within a few seconds, a notification saying **"Sign in to Wi-Fi network"** will pop up on your phone.
 3. Tap it — your **WaveNet WiFi Portal** will open on your screen!
 4. Register with your name and Ghana phone number (`+233...`).
-5. Choose any **No-Expiry Data Bundle** (e.g., 1 GB for GH₵ 5).
+5. Choose any **Time Pass** (e.g., 1 Hour for GH₵ 2.50 or 24 Hours for GH₵ 18).
 6. Complete payment and tap **Activate Internet Access**.
-7. Try opening YouTube or Google — you are now online!
+7. Try opening YouTube or Google — you are now online with a live countdown timer showing your remaining time!
 
 ---
 
@@ -132,18 +132,19 @@ add dst-host="*telecel.com.gh*" action=allow
 ### Q: Why didn't the portal pop up on my phone when I connected?
 - **Fix**: Open your mobile browser (Safari or Chrome) and try visiting any regular website like `http://neverssl.com` or `http://example.com`. The router will immediately catch it and open the portal.
 
-### Q: How do I change bundle prices or add a new package?
+### Q: How do I change time pass prices or add new durations?
 - You do **NOT** need to touch the router! Just log in as Admin on your portal computer:
   - Visit: **http://localhost:5173/admin/packages**
-  - Click **"New data bundle"** to add any bundle size and price in GH₵, or delete old ones with one click.
+  - Click **"New Time Package"** to configure any duration (e.g. 2 Hours, 12 Hours, 3 Days) and price in GH₵, or delete old ones with one click.
 
-### Q: Can I enforce exact data limits (e.g. 1GB, 5GB) directly on the router?
-- **Yes!** When a user buys 1GB, MikroTik can track their exact bytes. In MikroTik Terminal:
+### Q: How does MikroTik cut off access when the user's time is up?
+- When a user's time expires, their session is automatically terminated by the portal or router uptime timer.
+- You can also enforce exact router-level hardware uptime limits in MikroTik Hotspot:
   ```routeros
-  # Give a user exactly 1 GB with No Expiry:
-  /ip hotspot user add name="+233241234567" password="wifi-access" limit-bytes-total=1073741824
+  # Limit a user to exactly 1 hour of uptime on the router:
+  /ip hotspot user add name="+233241234567" password="wifi-access" limit-uptime=1h
   ```
-  Once they download and upload 1 GB, the router automatically turns off their internet and redirects them back to the portal to top up!
+  Once the 1 hour elapses, MikroTik immediately cuts off their internet traffic and redirects their browser back to the portal so they can buy another time package.
 
 ---
 

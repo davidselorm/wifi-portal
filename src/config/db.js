@@ -22,11 +22,15 @@ sqlite.exec(`
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
-  CREATE TABLE IF NOT EXISTS packages (
+    CREATE TABLE IF NOT EXISTS packages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     package_name TEXT NOT NULL,
     price REAL NOT NULL,
     description TEXT,
+    duration_value INTEGER DEFAULT 1,
+    duration_unit TEXT DEFAULT 'hours',
+    duration_minutes INTEGER DEFAULT 60,
+    speed_limit TEXT DEFAULT 'Unlimited',
     data_limit_mb INTEGER DEFAULT 0,
     validity_days INTEGER DEFAULT 0,
     status TEXT DEFAULT 'active',
@@ -35,7 +39,37 @@ sqlite.exec(`
 `);
 
 try {
+  sqlite.exec("ALTER TABLE packages ADD COLUMN duration_value INTEGER DEFAULT 1;");
+} catch {
+  // column already exists
+}
+
+try {
+  sqlite.exec("ALTER TABLE packages ADD COLUMN duration_unit TEXT DEFAULT 'hours';");
+} catch {
+  // column already exists
+}
+
+try {
+  sqlite.exec("ALTER TABLE packages ADD COLUMN duration_minutes INTEGER DEFAULT 60;");
+} catch {
+  // column already exists
+}
+
+try {
+  sqlite.exec("ALTER TABLE packages ADD COLUMN speed_limit TEXT DEFAULT 'Unlimited';");
+} catch {
+  // column already exists
+}
+
+try {
   sqlite.exec("ALTER TABLE packages ADD COLUMN data_limit_mb INTEGER DEFAULT 0;");
+} catch {
+  // column already exists
+}
+
+try {
+  sqlite.exec("ALTER TABLE users ADD COLUMN access_expires_at DATETIME;");
 } catch {
   // column already exists
 }

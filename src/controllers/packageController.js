@@ -70,6 +70,19 @@ const getPackageById = async (req, res) => {
   }
 };
 
+const calculateMinutes = (value, unit) => {
+  const val = Number(value) || 1;
+  const cleanUnit = (unit || "hours").toLowerCase();
+  if (cleanUnit === "days" || cleanUnit === "day") {
+    return val * 1440;
+  }
+  if (cleanUnit === "minutes" || cleanUnit === "min" || cleanUnit === "mins") {
+    return val;
+  }
+  // default to hours
+  return val * 60;
+};
+
 const createPackage = async (req, res) => {
   try {
     const {
@@ -77,6 +90,10 @@ const createPackage = async (req, res) => {
       name,
       price,
       description,
+      duration_value = 1,
+      duration_unit = "hours",
+      duration_minutes,
+      speed_limit = "Unlimited",
       data_limit_mb = 0,
       validity_days = 0,
       status = "active"
@@ -91,9 +108,26 @@ const createPackage = async (req, res) => {
       });
     }
 
+    const finalValue = Number(duration_value) || 1;
+    const finalUnit = duration_unit || "hours";
+    const finalMinutes = Number(duration_minutes) || calculateMinutes(finalValue, finalUnit);
+
     const [result] = await pool.query(
-      "INSERT INTO packages (package_name, price, description, data_limit_mb, validity_days, status) VALUES (?, ?, ?, ?, ?, ?)",
-      [finalName, price, description || "", Number(data_limit_mb) || 0, Number(validity_days) || 0, status]
+      `INSERT INTO packages (
+        package_name, price, description, duration_value, duration_unit, duration_minutes, speed_limit, data_limit_mb, validity_days, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        finalName,
+        price,
+        description || "",
+        finalValue,
+        finalUnit,
+        finalMinutes,
+        speed_limit || "Unlimited",
+        Number(data_limit_mb) || 0,
+        Number(validity_days) || 0,
+        status
+      ]
     );
 
     return res.status(201).json({
@@ -104,6 +138,10 @@ const createPackage = async (req, res) => {
         package_name: finalName,
         price,
         description: description || "",
+        duration_value: finalValue,
+        duration_unit: finalUnit,
+        duration_minutes: finalMinutes,
+        speed_limit: speed_limit || "Unlimited",
         data_limit_mb: Number(data_limit_mb) || 0,
         validity_days: Number(validity_days) || 0,
         status
@@ -119,7 +157,7 @@ const createPackage = async (req, res) => {
     ) {
       return res.status(503).json({
         success: false,
-        message: "Database unavailable. Please start your MySQL server."
+        message: "Database unavailable. Please start your database server."
       });
     }
 
@@ -138,6 +176,10 @@ const updatePackage = async (req, res) => {
       name,
       price,
       description,
+      duration_value,
+      duration_unit,
+      duration_minutes,
+      speed_limit,
       data_limit_mb,
       validity_days,
       status
@@ -155,16 +197,39 @@ const updatePackage = async (req, res) => {
       });
     }
 
-    const finalName = package_name || name || existingPackage[0].package_name;
-    const finalPrice = price ?? existingPackage[0].price;
-    const finalDescription = description ?? existingPackage[0].description;
-    const finalDataLimit = data_limit_mb ?? existingPackage[0].data_limit_mb ?? 0;
-    const finalValidity = validity_days ?? existingPackage[0].validity_days ?? 0;
-    const finalStatus = status ?? existingPackage[0].status;
+    const prev = existingPackage[0];
+    const finalName = package_name || name || prev.package_name;
+    const finalPrice = price ?? prev.price;
+    const finalDescription = description ?? prev.description;
+    const finalValue = duration_value !== undefined ? Number(duration_value) : (prev.duration_value || 1);
+    const finalUnit = duration_unit || prev.duration_unit || "hours";
+    const finalMinutes =
+      duration_minutes !== undefined
+        ? Number(duration_minutes)
+        : calculateMinutes(finalValue, finalUnit);
+    const finalSpeedLimit = speed_limit || prev.speed_limit || "Unlimited";
+    const finalDataLimit = data_limit_mb ?? prev.data_limit_mb ?? 0;
+    const finalValidity = validity_days ?? prev.validity_days ?? 0;
+    const finalStatus = status ?? prev.status;
 
     await pool.query(
-      "UPDATE packages SET package_name = ?, price = ?, description = ?, data_limit_mb = ?, validity_days = ?, status = ? WHERE id = ?",
-      [finalName, finalPrice, finalDescription, finalDataLimit, finalValidity, finalStatus, id]
+      `UPDATE packages SET 
+        package_name = ?, price = ?, description = ?, duration_value = ?, duration_unit = ?, 
+        duration_minutes = ?, speed_limit = ?, data_limit_mb = ?, validity_days = ?, status = ? 
+       WHERE id = ?`,
+      [
+        finalName,
+        finalPrice,
+        finalDescription,
+        finalValue,
+        finalUnit,
+        finalMinutes,
+        finalSpeedLimit,
+        finalDataLimit,
+        finalValidity,
+        finalStatus,
+        id
+      ]
     );
 
     return res.status(200).json({
@@ -175,6 +240,10 @@ const updatePackage = async (req, res) => {
         package_name: finalName,
         price: finalPrice,
         description: finalDescription,
+        duration_value: finalValue,
+        duration_unit: finalUnit,
+        duration_minutes: finalMinutes,
+        speed_limit: finalSpeedLimit,
         data_limit_mb: finalDataLimit,
         validity_days: finalValidity,
         status: finalStatus
@@ -190,7 +259,7 @@ const updatePackage = async (req, res) => {
     ) {
       return res.status(503).json({
         success: false,
-        message: "Database unavailable. Please start your MySQL server."
+        message: "Database unavailable. Please start your database server."
       });
     }
 

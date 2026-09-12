@@ -1,14 +1,18 @@
 import { useEffect, useState } from 'react'
 import {
+  AlertCircle,
   ArrowUpRight,
   CheckCircle2,
+  Clock,
   CreditCard,
   LogOut,
   Package,
   RefreshCw,
+  Timer,
   UserRound,
   Wifi,
   X,
+  Zap,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api'
@@ -17,11 +21,27 @@ import { captureMikroTikParams, submitMikroTikLogin } from '../utils/mikrotik'
 const formatCurrency = (value) =>
   `GH₵${Number(value || 0).toLocaleString('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
+const formatPackageDuration = (pkg) => {
+  const val = Number(pkg.duration_value) || 1
+  const unit = (pkg.duration_unit || 'hours').toLowerCase()
+
+  if (unit === 'days' || unit === 'day') {
+    return val === 1 ? '1 Day (24 Hours)' : `${val} Days`
+  }
+  if (unit === 'minutes' || unit === 'min' || unit === 'mins') {
+    return `${val} Minutes`
+  }
+  return val === 1 ? '1 Hour' : `${val} Hours`
+}
+
 function Dashboard() {
   const navigate = useNavigate()
   const [dashboard, setDashboard] = useState(null)
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(true)
+
+  // Real-time ticking clock for live countdown
+  const [now, setNow] = useState(() => Date.now())
 
   // Router session state initialized once from URL/session storage
   const [routerSession] = useState(() => captureMikroTikParams())
@@ -34,6 +54,14 @@ function Dashboard() {
 
   // Post-payment success modal state
   const [completedPayment, setCompletedPayment] = useState(null)
+
+  // Live timer tick every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(Date.now())
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [])
 
   const loadDashboard = async () => {
     setIsLoading(true)
@@ -104,7 +132,7 @@ function Dashboard() {
       })
 
       // Refresh stats and history in background
-      loadDashboard()
+      await loadDashboard()
 
       // Show success modal
       setCompletedPayment({
@@ -128,17 +156,17 @@ function Dashboard() {
     if (routerSession.linkLogin) {
       submitMikroTikLogin(username, password, routerSession.linkLogin)
     } else {
-      alert('Router login URL not detected. If you are connected to the MikroTik hotspot, you are ready to browse!')
+      alert('Router login URL not detected. If you are connected to the MikroTik hotspot, your time pass is active and you can browse freely!')
       setCompletedPayment(null)
     }
   }
 
-  const handleSimulateUsage = async () => {
+  const handleAddTestTime = async (minutes = 30) => {
     try {
-      await api.post('/customer/record-usage', { consumed_mb: 50 })
-      loadDashboard()
-    } catch {
-      // ignore
+      await api.post('/customer/extend-test-time', { minutes })
+      await loadDashboard()
+    } catch (err) {
+      console.error(err)
     }
   }
 
@@ -168,15 +196,34 @@ function Dashboard() {
     available_packages: packages = [],
     recent_payments: payments = [],
     payment_summary: summary = {},
-    data_balance: dataBalance = {
-      total_mb: 0,
-      used_mb: 0,
-      remaining_mb: 0,
-      percentage_remaining: 0,
-      is_active: false,
-      formatted: { total: '0 MB', used: '0 MB', remaining: '0 MB' }
-    }
+    active_package: activePackage = null,
   } = dashboard
+
+  // Calculate real-time live countdown based on `user.access_expires_at`
+  const expiresAtMs = user?.access_expires_at ? new Date(user.access_expires_at).getTime() : null
+  const secondsRemaining = expiresAtMs && expiresAtMs > now ? Math.max(0, Math.floor((expiresAtMs - now) / 1000)) : 0
+  const isAccessActive = secondsRemaining > 0
+
+  const days = Math.floor(secondsRemaining / 86400)
+  const hours = Math.floor((secondsRemaining % 86400) / 3600)
+  const minutes = Math.floor((secondsRemaining % 3600) / 60)
+  const seconds = secondsRemaining % 60
+
+  const countdownText = !isAccessActive
+    ? '00h 00m 00s'
+    : days > 0
+    ? `${days}d ${hours}h ${minutes}m ${seconds}s`
+    : `${String(hours).padStart(2, '0')}h ${String(minutes).padStart(2, '0')}m ${String(seconds).padStart(2, '0')}s`
+
+  const formattedExpiry = expiresAtMs
+    ? new Date(expiresAtMs).toLocaleDateString('en-GH', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      })
+    : null
 
   return (
     <main className="min-h-screen bg-[#f4f7f5] text-slate-900">
@@ -224,93 +271,99 @@ function Dashboard() {
 
         <div className="mb-10 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div>
-            <p className="mb-2 text-sm font-semibold tracking-[0.12em] text-[#ef8354] uppercase">Customer dashboard</p>
+            <p className="mb-2 text-sm font-semibold tracking-[0.12em] text-[#ef8354] uppercase">Customer Dashboard</p>
             <h1 className="text-4xl font-semibold tracking-[-0.04em] text-slate-950 sm:text-5xl">
               Good to see you, {user.full_name.split(' ')[0]}.
             </h1>
-            <p className="mt-3 text-slate-500">Monitor your data bundle balance and select packages below.</p>
+            <p className="mt-3 text-slate-500">Monitor your WiFi time balance and choose access packages below.</p>
           </div>
           <div className="flex items-center gap-2 text-sm text-slate-500">
-            <span className="size-2 rounded-full bg-emerald-500" /> Account {user.status || 'active'}
+            <span className={`size-2 rounded-full ${isAccessActive ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+            Access {isAccessActive ? 'Active' : 'Expired'}
           </div>
         </div>
 
-        {/* Active Data Balance Section */}
+        {/* Live WiFi Time Balance Section */}
         <section className="mb-8 overflow-hidden rounded-3xl bg-white p-6 shadow-[0_16px_50px_rgba(15,61,46,0.08)] sm:p-8">
           <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold tracking-wider text-[#ef8354] uppercase">
-                  Data Balance
+                  WiFi Time Remaining
                 </span>
                 <span
                   className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                    dataBalance.is_active
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : 'bg-amber-100 text-amber-800'
+                    isAccessActive ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
                   }`}
                 >
                   <span
                     className={`size-1.5 rounded-full ${
-                      dataBalance.is_active ? 'bg-emerald-500' : 'bg-amber-500'
+                      isAccessActive ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
                     }`}
                   />
-                  {dataBalance.is_active ? 'Active • No Expiry' : 'No Active Data'}
+                  {isAccessActive ? 'Active • Connected' : 'Time Up • No Internet Access'}
                 </span>
               </div>
-              <h2 className="mt-2 text-4xl font-extrabold tracking-tight text-slate-950 sm:text-5xl">
-                {dataBalance.formatted.remaining}{' '}
-                <span className="text-base font-normal text-slate-500">remaining</span>
-              </h2>
+
+              {isAccessActive ? (
+                <div className="mt-3">
+                  <div className="flex items-baseline gap-3">
+                    <h2 className="font-mono text-4xl font-extrabold tracking-tight text-slate-950 sm:text-6xl">
+                      {countdownText}
+                    </h2>
+                    <span className="text-sm font-medium text-slate-500">left</span>
+                  </div>
+                  <p className="mt-2 text-xs font-medium text-slate-500">
+                    Continuous access valid until: <strong className="text-slate-800">{formattedExpiry}</strong>
+                    {activePackage && ` • Current Plan: ${activePackage.package_name}`}
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-3">
+                  <h2 className="text-3xl font-extrabold tracking-tight text-rose-700 sm:text-5xl">
+                    Access Expired
+                  </h2>
+                  <p className="mt-2 text-sm text-slate-500">
+                    Your internet time has finished. Buy time below to regain instant internet access.
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5">
-              {dataBalance.total_mb > 0 && (
-                <button
-                  type="button"
-                  onClick={handleSimulateUsage}
-                  className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs font-medium text-slate-600 transition hover:bg-slate-100"
-                  title="Simulate data consumption to test live countdown"
-                >
-                  Test 50MB Usage
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => handleAddTestTime(30)}
+                className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs font-medium text-slate-600 transition hover:bg-slate-100"
+                title="Simulate adding 30 minutes to verify countdown"
+              >
+                +30 Mins Test Time
+              </button>
               <a
                 href="#packages-section"
                 className="rounded-xl bg-[#0f3d2e] px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-[#185b43]"
               >
-                Top Up Data
+                Buy WiFi Time
               </a>
             </div>
           </div>
 
-          {/* Progress Bar & Breakdown */}
-          <div className="mt-6">
-            <div className="mb-2 flex justify-between text-xs font-medium text-slate-500">
-              <span>Used: <strong>{dataBalance.formatted.used}</strong></span>
-              <span className="font-semibold text-slate-700">{dataBalance.percentage_remaining}% Available</span>
-              <span>Total Credited: <strong>{dataBalance.formatted.total}</strong></span>
+          {/* Alert banner when time has expired */}
+          {!isAccessActive && (
+            <div className="mt-6 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900">
+              <AlertCircle size={18} className="shrink-0 text-amber-600" />
+              <span>
+                <strong>Internet access is currently cut off.</strong> Once your time finishes, the router stops your session until you purchase another time pass. Select a package below to reconnect immediately!
+              </span>
             </div>
-            <div className="h-3.5 w-full overflow-hidden rounded-full bg-slate-100 p-0.5">
-              <div
-                className={`h-full rounded-full transition-all duration-500 ${
-                  dataBalance.percentage_remaining > 30
-                    ? 'bg-[#0f3d2e]'
-                    : dataBalance.percentage_remaining > 10
-                    ? 'bg-amber-500'
-                    : 'bg-rose-500'
-                }`}
-                style={{ width: `${dataBalance.percentage_remaining}%` }}
-              />
-            </div>
-          </div>
+          )}
         </section>
 
         {/* Stats Row */}
         <section className="grid gap-4 sm:grid-cols-3">
           <StatCard icon={<CreditCard size={20} />} label="Total spent" value={formatCurrency(summary.total_spent)} accent="bg-[#d8f6a0]" />
-          <StatCard icon={<Package size={20} />} label="Payments made" value={summary.total_payments || 0} accent="bg-[#ffd9c8]" />
-          <StatCard icon={<UserRound size={20} />} label="Available plans" value={packages.length} accent="bg-[#cfe3ff]" />
+          <StatCard icon={<Package size={20} />} label="Passes purchased" value={summary.total_payments || 0} accent="bg-[#ffd9c8]" />
+          <StatCard icon={<UserRound size={20} />} label="Available time passes" value={packages.length} accent="bg-[#cfe3ff]" />
         </section>
 
         {/* Content Columns */}
@@ -319,8 +372,8 @@ function Dashboard() {
           <section id="packages-section" className="rounded-2xl bg-[#0f3d2e] p-6 text-white shadow-[0_12px_40px_rgba(15,61,46,0.12)] sm:p-8">
             <div className="flex items-start justify-between">
               <div>
-                <h2 className="text-xl font-semibold">Available WiFi Packages</h2>
-                <p className="mt-1 text-sm text-white/60">Choose a package to get connected instantly</p>
+                <h2 className="text-xl font-semibold">Buy WiFi Time Passes</h2>
+                <p className="mt-1 text-sm text-white/60">Choose how much time you need. Internet starts right away.</p>
               </div>
               <ArrowUpRight className="text-[#d8f6a0]" size={23} />
             </div>
@@ -337,18 +390,16 @@ function Dashboard() {
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="text-lg font-semibold text-white">{plan.package_name}</p>
-                        <span className="rounded-md bg-[#d8f6a0]/20 px-2 py-0.5 text-xs font-semibold text-[#d8f6a0]">
-                          {plan.validity_days > 0 ? `${plan.validity_days} Days` : 'No Expiry'}
+                        <span className="inline-flex items-center gap-1 rounded-md bg-[#d8f6a0]/20 px-2 py-0.5 text-xs font-semibold text-[#d8f6a0]">
+                          <Timer size={12} /> {formatPackageDuration(plan)}
                         </span>
-                        {plan.data_limit_mb > 0 && (
-                          <span className="rounded-md bg-white/10 px-2 py-0.5 text-xs font-medium text-white/90">
-                            {plan.data_limit_mb >= 1024
-                              ? `${(plan.data_limit_mb / 1024).toFixed(plan.data_limit_mb % 1024 === 0 ? 0 : 1)} GB`
-                              : `${plan.data_limit_mb} MB`}
-                          </span>
-                        )}
+                        <span className="inline-flex items-center gap-1 rounded-md bg-white/10 px-2 py-0.5 text-xs font-medium text-white/90">
+                          <Zap size={11} className="text-amber-300" /> {plan.speed_limit || 'Unlimited Speed'}
+                        </span>
                       </div>
-                      <p className="mt-1 text-sm text-white/65">{plan.description || 'High-speed data bundle'}</p>
+                      <p className="mt-1 text-sm text-white/65">
+                        {plan.description || 'Continuous internet access. Active upon purchase.'}
+                      </p>
                     </div>
 
                     <div className="flex items-center justify-between gap-4 sm:justify-end">
@@ -357,7 +408,7 @@ function Dashboard() {
                         className="rounded-xl bg-[#d8f6a0] px-4 py-2.5 text-sm font-semibold text-[#0f3d2e] transition hover:bg-white"
                         onClick={() => handleOpenCheckout(plan)}
                       >
-                        Buy Now
+                        Buy Time
                       </button>
                     </div>
                   </div>
@@ -370,20 +421,20 @@ function Dashboard() {
           <section className="rounded-2xl bg-white p-6 shadow-[0_12px_40px_rgba(15,61,46,0.06)] sm:p-8">
             <div className="mb-6 flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-semibold text-slate-950">Recent payments</h2>
-                <p className="mt-1 text-sm text-slate-500">Your latest transactions and access records</p>
+                <h2 className="text-xl font-semibold text-slate-950">Recent Passes</h2>
+                <p className="mt-1 text-sm text-slate-500">Your latest transactions and access history</p>
               </div>
               <CreditCard className="text-slate-300" size={24} />
             </div>
 
             {payments.length === 0 ? (
-              <p className="rounded-xl bg-slate-50 p-5 text-sm text-slate-500">No payments recorded yet. Pick a plan to connect.</p>
+              <p className="rounded-xl bg-slate-50 p-5 text-sm text-slate-500">No passes purchased yet. Pick a plan to connect.</p>
             ) : (
               <div className="divide-y divide-slate-100">
                 {payments.map((payment) => (
                   <div className="flex items-center justify-between gap-4 py-4 first:pt-0 last:pb-0" key={payment.id}>
                     <div>
-                      <p className="font-medium text-slate-800">{payment.reference || `Payment #${payment.id}`}</p>
+                      <p className="font-medium text-slate-800">{payment.package_name || payment.reference || `Pass #${payment.id}`}</p>
                       <p className="mt-1 text-xs text-slate-400">
                         {payment.payment_method} • {new Date(payment.created_at).toLocaleDateString()}
                       </p>
@@ -425,20 +476,20 @@ function Dashboard() {
 
             <div className="mt-6 rounded-xl border border-slate-100 bg-slate-50 p-4">
               <div className="flex justify-between text-sm text-slate-600">
-                <span>Bundle type:</span>
-                <span className="font-semibold text-emerald-700">No Expiry Data Bundle</span>
+                <span>Access Pass:</span>
+                <span className="font-semibold text-emerald-700">{formatPackageDuration(selectedPackage)}</span>
               </div>
               <div className="mt-2 flex justify-between text-sm text-slate-600">
-                <span>Data volume:</span>
+                <span>Access Rule:</span>
                 <span className="font-medium text-slate-900">
-                  {selectedPackage.data_limit_mb > 0
-                    ? selectedPackage.data_limit_mb >= 1024
-                      ? `${(selectedPackage.data_limit_mb / 1024).toFixed(selectedPackage.data_limit_mb % 1024 === 0 ? 0 : 1)} GB`
-                      : `${selectedPackage.data_limit_mb} MB`
-                    : selectedPackage.package_name}
+                  Continuous countdown from moment of payment
                 </span>
               </div>
               <div className="mt-2 flex justify-between text-sm text-slate-600">
+                <span>Speed:</span>
+                <span className="font-medium text-slate-900">{selectedPackage.speed_limit || 'Unlimited Speed'}</span>
+              </div>
+              <div className="mt-3 flex justify-between border-t border-slate-200/60 pt-3 text-sm text-slate-600">
                 <span>Total amount:</span>
                 <span className="text-lg font-bold text-[#0f3d2e]">{formatCurrency(selectedPackage.price)}</span>
               </div>
@@ -499,9 +550,9 @@ function Dashboard() {
               <CheckCircle2 size={36} />
             </div>
 
-            <h3 className="text-2xl font-bold text-slate-950">Payment Successful!</h3>
+            <h3 className="text-2xl font-bold text-slate-950">Time Activated!</h3>
             <p className="mt-2 text-sm text-slate-600">
-              Your bundle for <strong>{completedPayment.package.package_name}</strong> is activated.
+              Your <strong>{completedPayment.package.package_name}</strong> pass has been activated.
             </p>
 
             <div className="my-6 rounded-xl bg-slate-50 p-4 text-left text-xs text-slate-600">
@@ -510,12 +561,8 @@ function Dashboard() {
                 <span className="font-mono font-medium text-slate-900">{completedPayment.payment.reference}</span>
               </p>
               <p className="flex justify-between py-1">
-                <span>Plan:</span>
-                <span className="font-medium text-slate-900">{completedPayment.package.package_name}</span>
-              </p>
-              <p className="flex justify-between py-1">
-                <span>Validity:</span>
-                <span className="font-semibold text-emerald-600">No Expiry (Active until finished)</span>
+                <span>Pass Duration:</span>
+                <span className="font-semibold text-emerald-600">{formatPackageDuration(completedPayment.package)}</span>
               </p>
               <p className="flex justify-between py-1">
                 <span>Device MAC:</span>

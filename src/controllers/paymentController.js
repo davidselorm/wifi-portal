@@ -105,6 +105,51 @@ const getPaymentById = async (req, res) => {
   }
 };
 
+const grantUserAccessTime = async (userId, packageId) => {
+  try {
+    const [pkgRows] = await pool.query(
+      "SELECT duration_minutes, duration_value, duration_unit FROM packages WHERE id = ? LIMIT 1",
+      [packageId]
+    );
+    if (pkgRows.length === 0) return;
+
+    const pkg = pkgRows[0];
+    let minutesToAdd = Number(pkg.duration_minutes);
+    if (!minutesToAdd || minutesToAdd <= 0) {
+      const val = Number(pkg.duration_value) || 1;
+      const unit = (pkg.duration_unit || "hours").toLowerCase();
+      minutesToAdd = unit === "days" ? val * 1440 : unit === "minutes" ? val : val * 60;
+    }
+
+    const [userRows] = await pool.query(
+      "SELECT access_expires_at FROM users WHERE id = ? LIMIT 1",
+      [userId]
+    );
+    if (userRows.length === 0) return;
+
+    const currentExpiresAt = userRows[0].access_expires_at
+      ? new Date(userRows[0].access_expires_at)
+      : null;
+    const now = new Date();
+
+    // If user currently has active time, extend from current expiry date; otherwise start from now
+    const baseTime =
+      currentExpiresAt && currentExpiresAt.getTime() > now.getTime()
+        ? currentExpiresAt.getTime()
+        : now.getTime();
+
+    const newExpiresAt = new Date(baseTime + minutesToAdd * 60 * 1000);
+    const formattedExpiry = newExpiresAt.toISOString();
+
+    await pool.query(
+      "UPDATE users SET access_expires_at = ?, status = 'active' WHERE id = ?",
+      [formattedExpiry, userId]
+    );
+  } catch (err) {
+    console.error("Error granting user access time:", err);
+  }
+};
+
 const createPayment = async (req, res) => {
   try {
     const {
@@ -129,6 +174,11 @@ const createPayment = async (req, res) => {
       "INSERT INTO payments (user_id, package_id, amount, payment_method, status, reference) VALUES (?, ?, ?, ?, ?, ?)",
       [finalUserId, package_id, amount, payment_method, status, reference || null]
     );
+
+    // If payment is paid, activate or extend internet access time for user
+    if (status === "paid") {
+      await grantUserAccessTime(finalUserId, package_id);
+    }
 
     return res.status(201).json({
       success: true,
@@ -189,6 +239,10 @@ const updatePaymentStatus = async (req, res) => {
     }
 
     await pool.query("UPDATE payments SET status = ? WHERE id = ?", [status, id]);
+
+    if (status === "paid") {
+      await grantUserAccessTime(existingPayment[0].user_id, existingPayment[0].package_id);
+    }
 
     return res.status(200).json({
       success: true,
