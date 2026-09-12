@@ -1,8 +1,9 @@
-import { ExternalLink, LayoutDashboard, LogOut, Package, ReceiptText, Users, Wifi } from 'lucide-react'
+import { ExternalLink, Laptop, LayoutDashboard, LogOut, Package, ReceiptText, Users, Wifi } from 'lucide-react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 
 const navigation = [
   { label: 'Overview', path: '/admin', icon: LayoutDashboard, end: true },
+  { label: 'Active Sessions', path: '/admin/sessions', icon: Laptop },
   { label: 'Users', path: '/admin/users', icon: Users },
   { label: 'Packages', path: '/admin/packages', icon: Package },
   { label: 'Payments', path: '/admin/payments', icon: ReceiptText },

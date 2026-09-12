@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Clock,
   CreditCard,
+  Laptop,
   LogOut,
   Package,
   RefreshCw,
@@ -163,6 +164,27 @@ function Dashboard() {
     }
   }
 
+  const handleDisconnectDevice = async () => {
+    if (!window.confirm('Disconnect this device from your active WiFi session?')) return
+    try {
+      await api.post('/customer/session/disconnect')
+      await loadDashboard()
+    } catch {
+      // ignore
+    }
+  }
+
+  // Automatically sync device session with backend when user has active pass
+  useEffect(() => {
+    if (dashboard?.user?.access_expires_at && new Date(dashboard.user.access_expires_at) > new Date()) {
+      const params = captureMikroTikParams()
+      api.post('/customer/session', {
+        mac_address: params.mac || undefined,
+        ip_address: params.ip || undefined,
+      }).catch(() => {})
+    }
+  }, [dashboard?.user?.access_expires_at])
+
   if (isLoading) {
     return (
       <div className="grid min-h-screen place-items-center bg-[#f4f7f5] text-[#0f3d2e]">
@@ -190,6 +212,7 @@ function Dashboard() {
     recent_payments: payments = [],
     payment_summary: summary = {},
     active_package: activePackage = null,
+    active_session: activeSession = null,
   } = dashboard
 
   // Calculate real-time live countdown based on `user.access_expires_at`
@@ -384,6 +407,32 @@ function Dashboard() {
                 </span>
               </div>
             )
+          )}
+
+          {/* Active Connected Device Details */}
+          {isAccessActive && activeSession && (
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50/90 px-4 py-3 text-xs text-slate-600">
+              <div className="flex items-center gap-2.5">
+                <div className="grid size-7 place-items-center rounded-lg bg-emerald-100 text-emerald-700">
+                  <Laptop size={14} />
+                </div>
+                <div>
+                  <span className="font-semibold text-slate-800">Connected Device: </span>
+                  <span className="font-mono font-medium text-slate-700">{activeSession.mac_address || 'Current Browser'}</span>
+                  {activeSession.ip_address && (
+                    <span className="ml-2 font-mono text-slate-400">({activeSession.ip_address})</span>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleDisconnectDevice}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 font-medium text-slate-600 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700"
+                title="Disconnect this device from WiFi session"
+              >
+                Disconnect Device
+              </button>
+            </div>
           )}
         </section>
 

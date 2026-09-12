@@ -7,6 +7,7 @@ import AdminDashboard from './pages/AdminDashboard'
 import AdminUsers from './pages/AdminUsers'
 import AdminPackages from './pages/AdminPackages'
 import AdminPayments from './pages/AdminPayments'
+import AdminSessions from './pages/AdminSessions'
 import ProtectedRoute from './components/ProtectedRoute'
 
 function LoginRedirect() {
@@ -32,6 +33,7 @@ function App() {
         <Route path="/admin" element={<ProtectedRoute adminOnly />}>
           <Route element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
+            <Route path="sessions" element={<AdminSessions />} />
             <Route path="users" element={<AdminUsers />} />
             <Route path="packages" element={<AdminPackages />} />
             <Route path="payments" element={<AdminPayments />} />

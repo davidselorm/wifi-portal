@@ -102,6 +102,12 @@ const getCustomerDashboard = async (req, res) => {
     const usedDataMb = Number(userRows[0]?.used_data_mb || 0);
     const remainingDataMb = Math.max(0, totalDataMb - usedDataMb);
 
+    // Fetch user's active device session if online
+    const [activeSessionRows] = await pool.query(
+      "SELECT * FROM active_sessions WHERE user_id = ? AND status = 'active' ORDER BY started_at DESC LIMIT 1",
+      [userId]
+    );
+
     return res.status(200).json({
       success: true,
       data: {
@@ -109,6 +115,7 @@ const getCustomerDashboard = async (req, res) => {
         available_packages: packageRows,
         recent_payments: paymentRows,
         active_package: activePackage,
+        active_session: activeSessionRows[0] || null,
         payment_summary: {
           total_payments: paymentCountRows[0]?.total_payments || 0,
           total_spent: Number(totalSpentRows[0]?.total_spent || 0)
@@ -235,8 +242,111 @@ const extendTestTime = async (req, res) => {
   }
 };
 
+const syncDeviceSession = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    const { mac_address, ip_address } = req.body;
+    const detectedIp =
+      ip_address ||
+      req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
+      req.socket.remoteAddress ||
+      "127.0.0.1";
+    const detectedMac = mac_address || "Auto-detected";
+
+    // Verify user has active access time
+    const [userRows] = await pool.query(
+      "SELECT id, access_expires_at FROM users WHERE id = ? LIMIT 1",
+      [userId]
+    );
+    const user = userRows[0];
+    const now = new Date();
+    const expiresAt = user?.access_expires_at ? new Date(user.access_expires_at) : null;
+    const isActive = expiresAt && expiresAt.getTime() > now.getTime();
+
+    if (!isActive) {
+      return res.status(403).json({
+        success: false,
+        message: "No active internet pass. Purchase a time pass to start an active WiFi session."
+      });
+    }
+
+    // Look for existing active session for this user
+    const [existingRows] = await pool.query(
+      "SELECT * FROM active_sessions WHERE user_id = ? AND status = 'active' ORDER BY started_at DESC LIMIT 1",
+      [userId]
+    );
+
+    let sessionId;
+    if (existingRows.length > 0) {
+      sessionId = existingRows[0].id;
+      // Update session keepalive and IP/MAC if refreshed
+      await pool.query(
+        "UPDATE active_sessions SET ip_address = ?, mac_address = ?, expires_at = ? WHERE id = ?",
+        [detectedIp, detectedMac, expiresAt.toISOString(), sessionId]
+      );
+    } else {
+      // Disconnect any older sessions on this MAC to prevent duplicate ghost sessions
+      if (detectedMac && detectedMac !== "Auto-detected") {
+        await pool.query(
+          "UPDATE active_sessions SET status = 'disconnected', ended_at = CURRENT_TIMESTAMP WHERE mac_address = ? AND status = 'active'",
+          [detectedMac]
+        );
+      }
+
+      // Create new active session record
+      const [insertResult] = await pool.query(
+        "INSERT INTO active_sessions (user_id, ip_address, mac_address, status, started_at, expires_at) VALUES (?, ?, ?, 'active', CURRENT_TIMESTAMP, ?)",
+        [userId, detectedIp, detectedMac, expiresAt.toISOString()]
+      );
+      sessionId = insertResult.insertId;
+    }
+
+    const [currentSession] = await pool.query(
+      "SELECT * FROM active_sessions WHERE id = ? LIMIT 1",
+      [sessionId]
+    );
+
+    return res.json({
+      success: true,
+      message: "Device session synced successfully",
+      data: currentSession[0]
+    });
+  } catch (error) {
+    console.error("syncDeviceSession error:", error);
+    return res.status(500).json({ success: false, message: "Failed to sync device session" });
+  }
+};
+
+const disconnectDeviceSession = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    await pool.query(
+      "UPDATE active_sessions SET status = 'disconnected', ended_at = CURRENT_TIMESTAMP WHERE user_id = ? AND status = 'active'",
+      [userId]
+    );
+
+    return res.json({
+      success: true,
+      message: "Device disconnected successfully"
+    });
+  } catch (error) {
+    console.error("disconnectDeviceSession error:", error);
+    return res.status(500).json({ success: false, message: "Failed to disconnect device" });
+  }
+};
+
 module.exports = {
   getCustomerDashboard,
   recordUsage,
-  extendTestTime
+  extendTestTime,
+  syncDeviceSession,
+  disconnectDeviceSession
 };
