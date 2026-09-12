@@ -9,6 +9,7 @@ import {
   Package,
   RefreshCw,
   ShieldCheck,
+  Sparkles,
   Timer,
   UserRound,
   Wifi,
@@ -195,6 +196,7 @@ function Dashboard() {
   const expiresAtMs = user?.access_expires_at ? new Date(user.access_expires_at).getTime() : null
   const secondsRemaining = expiresAtMs && expiresAtMs > now ? Math.max(0, Math.floor((expiresAtMs - now) / 1000)) : 0
   const isAccessActive = secondsRemaining > 0
+  const hasEverPurchased = Boolean(user?.access_expires_at || (payments && payments.length > 0))
 
   const days = Math.floor(secondsRemaining / 86400)
   const hours = Math.floor((secondsRemaining % 86400) / 3600)
@@ -278,8 +280,12 @@ function Dashboard() {
             <p className="mt-3 text-slate-500">Monitor your WiFi time balance and choose access packages below.</p>
           </div>
           <div className="flex items-center gap-2 text-sm text-slate-500">
-            <span className={`size-2 rounded-full ${isAccessActive ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-            Access {isAccessActive ? 'Active' : 'Expired'}
+            <span
+              className={`size-2 rounded-full ${
+                isAccessActive ? 'bg-emerald-500' : hasEverPurchased ? 'bg-amber-500' : 'bg-sky-500'
+              }`}
+            />
+            {isAccessActive ? 'Access Active' : hasEverPurchased ? 'Session Ended' : 'Ready to Connect'}
           </div>
         </div>
 
@@ -293,15 +299,27 @@ function Dashboard() {
                 </span>
                 <span
                   className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                    isAccessActive ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                    isAccessActive
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : hasEverPurchased
+                      ? 'bg-amber-100 text-amber-800'
+                      : 'bg-sky-100 text-sky-800'
                   }`}
                 >
                   <span
                     className={`size-1.5 rounded-full ${
-                      isAccessActive ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
+                      isAccessActive
+                        ? 'bg-emerald-500 animate-pulse'
+                        : hasEverPurchased
+                        ? 'bg-amber-500'
+                        : 'bg-sky-500'
                     }`}
                   />
-                  {isAccessActive ? 'Active • Connected' : 'Time Up • No Internet Access'}
+                  {isAccessActive
+                    ? 'Active • Connected'
+                    : hasEverPurchased
+                    ? 'Time Finished • Ready to Renew'
+                    : 'Ready • Choose a Pass'}
                 </span>
               </div>
 
@@ -318,13 +336,22 @@ function Dashboard() {
                     {activePackage && ` • Current Plan: ${activePackage.package_name}`}
                   </p>
                 </div>
-              ) : (
+              ) : hasEverPurchased ? (
                 <div className="mt-3">
-                  <h2 className="text-3xl font-extrabold tracking-tight text-rose-700 sm:text-5xl">
-                    Access Expired
+                  <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
+                    Time Finished
                   </h2>
                   <p className="mt-2 text-sm text-slate-500">
-                    Your internet time has finished. Buy time below to regain instant internet access.
+                    Your previous internet pass has ended. Choose a package below to get reconnected.
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-3">
+                  <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
+                    Ready to Connect
+                  </h2>
+                  <p className="mt-2 text-sm text-slate-500">
+                    Welcome to WaveNet! Select an affordable WiFi pass below to activate your internet.
                   </p>
                 </div>
               )}
@@ -340,14 +367,23 @@ function Dashboard() {
             </div>
           </div>
 
-          {/* Alert banner when time has expired */}
+          {/* Friendly alert / info banner */}
           {!isAccessActive && (
-            <div className="mt-6 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-900">
-              <AlertCircle size={18} className="shrink-0 text-amber-600" />
-              <span>
-                <strong>Internet access is currently cut off.</strong> Once your time finishes, the router stops your session until you purchase another time pass. Select a package below to reconnect immediately!
-              </span>
-            </div>
+            hasEverPurchased ? (
+              <div className="mt-6 flex items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50/80 p-4 text-xs text-amber-900">
+                <AlertCircle size={18} className="shrink-0 text-amber-600" />
+                <span>
+                  <strong>Your session has ended.</strong> Select a package below whenever you're ready to reconnect to high-speed internet!
+                </span>
+              </div>
+            ) : (
+              <div className="mt-6 flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 text-xs text-emerald-950">
+                <Sparkles size={18} className="shrink-0 text-emerald-600" />
+                <span>
+                  <strong>Welcome to WaveNet WiFi!</strong> You don't have an active pass yet. Choose any time pass below to start surfing right away.
+                </span>
+              </div>
+            )
           )}
         </section>
 
