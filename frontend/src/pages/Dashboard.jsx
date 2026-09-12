@@ -162,15 +162,6 @@ function Dashboard() {
     }
   }
 
-  const handleAddTestTime = async (minutes = 30) => {
-    try {
-      await api.post('/customer/extend-test-time', { minutes })
-      await loadDashboard()
-    } catch (err) {
-      console.error(err)
-    }
-  }
-
   if (isLoading) {
     return (
       <div className="grid min-h-screen place-items-center bg-[#f4f7f5] text-[#0f3d2e]">
@@ -340,14 +331,6 @@ function Dashboard() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5">
-              <button
-                type="button"
-                onClick={() => handleAddTestTime(30)}
-                className="rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs font-medium text-slate-600 transition hover:bg-slate-100"
-                title="Simulate adding 30 minutes to verify countdown"
-              >
-                +30 Mins Test Time
-              </button>
               <a
                 href="#packages-section"
                 className="rounded-xl bg-[#0f3d2e] px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-[#185b43]"
