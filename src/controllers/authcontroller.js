@@ -96,10 +96,11 @@ const login = async (req, res) => {
       {
         id: user.id,
         email: user.email,
-        phone: user.phone
+        phone: user.phone,
+        role: user.role
       },
       process.env.JWT_SECRET || "wifiportalsecret",
-      { expiresIn: "1h" }
+      { expiresIn: "7d" }
     );
 
     return res.status(200).json({
@@ -110,7 +111,8 @@ const login = async (req, res) => {
         id: user.id,
         full_name: user.full_name,
         email: user.email,
-        phone: user.phone
+        phone: user.phone,
+        role: user.role
       }
     });
   } catch (error) {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowUpRight, Package, RefreshCw, Users, Wifi } from 'lucide-react'
+import { ArrowUpRight, Coins, Package, Radio, RefreshCw, Users, Wifi } from 'lucide-react'
 import api from '../api'
 
 function AdminDashboard() {
@@ -8,25 +8,73 @@ function AdminDashboard() {
 
   useEffect(() => {
     let isCurrent = true
-    api.get('/admin/dashboard')
-      .then(({ data }) => { if (isCurrent) setStats(data.data) })
-      .catch((requestError) => { if (isCurrent) setError(requestError.response?.data?.message || 'Unable to load dashboard metrics.') })
-    return () => { isCurrent = false }
+    api
+      .get('/admin/dashboard')
+      .then(({ data }) => {
+        if (isCurrent) setStats(data.data)
+      })
+      .catch((requestError) => {
+        if (isCurrent)
+          setError(requestError.response?.data?.message || 'Unable to load dashboard metrics.')
+      })
+    return () => {
+      isCurrent = false
+    }
   }, [])
 
   if (error) return <ErrorState message={error} />
   if (!stats) return <LoadingState />
 
-  return <>
-    <PageIntro eyebrow="Overview" title="Good morning, admin." description="A quick read on the people and plans powering your portal." />
-    <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <Metric icon={<Users size={20} />} label="Total users" value={stats.total_users} tone="lime" />
-      <Metric icon={<Package size={20} />} label="Total packages" value={stats.total_packages} tone="peach" />
-      <Metric icon={<Wifi size={20} />} label="Active packages" value={stats.active_packages} tone="blue" />
-      <Metric icon={<ArrowUpRight size={20} />} label="Inactive packages" value={stats.inactive_packages} tone="yellow" />
-    </section>
-    <section className="mt-8 rounded-2xl bg-[#0f3d2e] p-7 text-white sm:p-9"><div className="max-w-xl"><p className="text-sm font-semibold tracking-[0.12em] text-[#d8f6a0] uppercase">Portal health</p><h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em]">Everything important, in one place.</h2><p className="mt-3 leading-7 text-white/65">Use the navigation to review customers, keep packages current, and reconcile incoming payments.</p></div></section>
-  </>
+  const revenueFormatted = `GH₵${Number(stats.total_revenue || 0).toLocaleString('en-GH', { minimumFractionDigits: 2 })}`
+
+  return (
+    <>
+      <PageIntro
+        eyebrow="Portal Overview"
+        title="Admin Control Center"
+        description="Monitor active subscribers, WiFi packages, and real-time revenue."
+      />
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Metric
+          icon={<Users size={20} />}
+          label="Total Users"
+          value={stats.total_users}
+          tone="blue"
+        />
+        <Metric
+          icon={<Radio size={20} />}
+          label="Active Online Users"
+          value={stats.active_users}
+          tone="lime"
+        />
+        <Metric
+          icon={<Coins size={20} />}
+          label="Total Revenue"
+          value={revenueFormatted}
+          tone="yellow"
+        />
+        <Metric
+          icon={<Package size={20} />}
+          label="Active Time Packages"
+          value={stats.active_packages}
+          tone="peach"
+        />
+      </section>
+      <section className="mt-8 rounded-2xl bg-[#0f3d2e] p-7 text-white sm:p-9">
+        <div className="max-w-xl">
+          <p className="text-sm font-semibold tracking-[0.12em] text-[#d8f6a0] uppercase">
+            Portal Management
+          </p>
+          <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em]">
+            Time passes, customer accounts, and revenue.
+          </h2>
+          <p className="mt-3 leading-7 text-white/65">
+            Use the sidebar menu to create or adjust WiFi time packages, inspect connected customer accounts, and monitor payment settlements in real time.
+          </p>
+        </div>
+      </section>
+    </>
+  )
 }
 
 function Metric({ icon, label, value, tone }) {

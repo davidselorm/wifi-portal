@@ -29,7 +29,7 @@ function App() {
         </Route>
 
         {/* Admin workspace routes */}
-        <Route path="/admin" element={<ProtectedRoute />}>
+        <Route path="/admin" element={<ProtectedRoute adminOnly />}>
           <Route element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
             <Route path="users" element={<AdminUsers />} />

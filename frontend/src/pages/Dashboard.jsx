@@ -8,6 +8,7 @@ import {
   LogOut,
   Package,
   RefreshCw,
+  ShieldCheck,
   Timer,
   UserRound,
   Wifi,
@@ -237,7 +238,15 @@ function Dashboard() {
             WaveNet WiFi
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {user?.role === 'admin' && (
+              <button
+                className="flex items-center gap-1.5 rounded-xl bg-[#0f3d2e] px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-[#185b43]"
+                onClick={() => navigate('/admin')}
+              >
+                <ShieldCheck size={16} className="text-[#d8f6a0]" /> Admin Panel
+              </button>
+            )}
             <button
               className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
               onClick={handleLogout}

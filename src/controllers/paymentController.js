@@ -3,7 +3,11 @@ const { pool } = require("../config/db");
 const getAllPayments = async (req, res) => {
   try {
     const [payments] = await pool.query(
-      "SELECT * FROM payments ORDER BY created_at DESC"
+      `SELECT p.*, u.full_name, u.email, u.phone, pk.package_name, pk.duration_value, pk.duration_unit 
+       FROM payments p 
+       LEFT JOIN users u ON p.user_id = u.id 
+       LEFT JOIN packages pk ON p.package_id = pk.id 
+       ORDER BY p.created_at DESC`
     );
 
     return res.status(200).json({

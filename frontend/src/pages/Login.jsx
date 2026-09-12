@@ -33,7 +33,9 @@ function Login() {
       })
       localStorage.setItem('wifi_portal_token', data.token)
       localStorage.setItem('wifi_portal_user', JSON.stringify(data.user))
-      const destination = location.state?.from?.pathname || '/dashboard'
+      const destination =
+        location.state?.from?.pathname ||
+        (data.user?.role === 'admin' ? '/admin' : '/dashboard')
       navigate(destination, { replace: true })
     } catch (requestError) {
       setError(requestError.response?.data?.message || 'Unable to sign in. Please try again.')
